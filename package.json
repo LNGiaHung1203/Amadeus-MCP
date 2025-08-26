@@ -1,0 +1,39 @@
+{
+  "name": "amadeus-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for travel booking using Amadeus API",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node simple-server.js",
+    "dev": "nodemon simple-server.js",
+    "setup": "node setup.js",
+    "test": "node simple-server.js",
+    "test:tools": "node test-tools.js",
+    "mcp": "node simple-server.js",
+    "comprehensive": "node comprehensive-server.js",
+    "test:comprehensive": "node comprehensive-server.js",
+    "demo": "node demo-all-tools.js"
+  },
+  "keywords": [
+    "mcp",
+    "amadeus",
+    "travel",
+    "flights",
+    "hotels",
+    "api"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.4",
+    "amadeus": "^8.1.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
