@@ -1,266 +1,315 @@
 # Amadeus MCP Server
 
-A Model Context Protocol (MCP) server that provides travel booking capabilities using the Amadeus API. This server allows AI assistants to search for flights, hotels, and get travel recommendations.
+A Model Context Protocol (MCP) server that provides access to the Amadeus Travel API, allowing AI assistants and other MCP clients to search for flights, hotels, airports, and cities.
 
 ## Features
 
-- ✈️ **Flight Search**: Search for available flights between airports
-- 🏨 **Hotel Search**: Find hotels in specific cities
-- 💡 **Travel Recommendations**: Get personalized travel tips and activity suggestions
-- 🔐 **Secure API Integration**: Uses Amadeus API with proper authentication
-- 🧪 **Testing Tools**: Built-in testing and validation
+- **Flight Search**: Search for available flights between airports with flexible date options
+- **Hotel Search**: Find hotels in specific cities with availability and pricing information
+- **Airport Search**: Look up airports by city name, airport code, or other keywords
+- **City Search**: Search for cities and their codes for use in other API calls
+- **Flight Pricing**: Get detailed pricing information for specific flight offers
+- **Travel Planning**: Interactive prompts for travel assistance
+- **Documentation**: Access to Amadeus API documentation and usage examples
 
 ## Prerequisites
 
-- Node.js 18.0.0 or higher
-- Amadeus API credentials (get them from [Amadeus Developers](https://developers.amadeus.com/))
+- Node.js 18+ 
+- Amadeus API credentials (Client ID and Client Secret)
+- TypeScript knowledge (for development)
 
-## Quick Start
+## Installation
 
-### 1. Install Dependencies
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd amadeus-mcp-server
+```
 
+2. Install dependencies:
 ```bash
 npm install
 ```
 
-### 2. Set Up Amadeus API Credentials
-
-Run the interactive setup script:
-
-```bash
-npm run setup
-```
-
-This will prompt you for:
-
-- Amadeus Client ID
-- Amadeus Client Secret
-- Environment (test/live)
-
-Alternatively, manually create a `.env` file based on `env.example`:
-
+3. Set up environment variables:
 ```bash
 cp env.example .env
-# Edit .env with your credentials
 ```
 
-### 3. Test the Server
-
-**Basic Server (3 tools):**
-
-```bash
-npm test
-```
-
-**Comprehensive Server (17 tools):**
-
-```bash
-npm run comprehensive
-```
-
-**Test All Tools:**
-
-```bash
-npm run test:comprehensive
-```
-
-### 4. Start the Server
-
-**Basic Server:**
-
-```bash
-npm start
-```
-
-**Comprehensive Server:**
-
-```bash
-npm run comprehensive
-```
-
-### 5. Use as MCP Server
-
-**Basic Server:**
-
-```bash
-npm run mcp
-```
-
-**Comprehensive Server:**
-
-```bash
-npm run comprehensive
-```
-
-## Configuration
-
-### Environment Variables
-
-Create a `.env` file in the project root:
-
+Edit `.env` and add your Amadeus API credentials:
 ```env
-AMADEUS_CLIENT_ID=your_client_id_here
-AMADEUS_CLIENT_SECRET=your_client_secret_here
-AMADEUS_ENVIRONMENT=test
-LOG_LEVEL=info
+AMADEUS_CLIENT_ID=your_amadeus_client_id_here
+AMADEUS_CLIENT_SECRET=your_amadeus_client_secret_here
+PORT=3000
+NODE_ENV=development
 ```
 
-### Amadeus API Setup
+## Getting Amadeus API Credentials
 
-1. Go to [Amadeus Developers](https://developers.amadeus.com/)
+1. Go to [Amadeus for Developers](https://developers.amadeus.com/)
 2. Create an account and log in
-3. Create a new application
-4. Copy your Client ID and Client Secret
-5. Choose between test (sandbox) or live environment
+3. Create a new application to get your Client ID and Client Secret
+4. Choose between test and production environments
 
-## Available Tools
+## Usage
 
-### 1. Search Flights (`search_flights`)
-
-Search for available flights between airports.
-
-**Parameters:**
-
-- `origin` (required): Origin airport code (e.g., "NYC", "LAX", "LHR")
-- `destination` (required): Destination airport code
-- `departureDate` (required): Departure date in YYYY-MM-DD format
-- `returnDate` (optional): Return date for round-trip flights
-- `adults` (optional): Number of adult passengers (default: "1")
-- `max` (optional): Maximum results to return (default: "10")
-
-**Example:**
-
-```json
-{
-  "origin": "NYC",
-  "destination": "LAX",
-  "departureDate": "2024-06-01",
-  "adults": "2",
-  "max": "5"
-}
-```
-
-### 2. Search Hotels (`search_hotels`)
-
-Find available hotels in a specific city.
-
-**Parameters:**
-
-- `cityCode` (required): City code (e.g., "PAR", "NYC", "LON")
-- `checkInDate` (required): Check-in date in YYYY-MM-DD format
-- `checkOutDate` (required): Check-out date in YYYY-MM-DD format
-- `adults` (optional): Number of adult guests (default: "2")
-- `max` (optional): Maximum results to return (default: "10")
-
-**Example:**
-
-```json
-{
-  "cityCode": "PAR",
-  "checkInDate": "2024-06-01",
-  "checkOutDate": "2024-06-03",
-  "adults": "2"
-}
-```
-
-### 3. Get Travel Recommendations (`get_travel_recommendations`)
-
-Get personalized travel tips and activity suggestions.
-
-**Parameters:**
-
-- `destination` (required): Destination city or country
-- `interests` (optional): Array of interests (e.g., ["culture", "food", "adventure"])
-- `budget` (optional): Budget level ("budget", "mid-range", "luxury")
-- `duration` (optional): Trip duration (e.g., "3 days", "1 week")
-
-**Example:**
-
-```json
-{
-  "destination": "Paris",
-  "interests": ["culture", "food"],
-  "budget": "mid-range",
-  "duration": "3 days"
-}
-```
-
-## Usage with MCP Clients
-
-This server implements the Model Context Protocol and can be used with any MCP-compatible client. The server communicates via stdio transport.
-
-### Example MCP Client Configuration
-
-```json
-{
-  "mcpServers": {
-    "amadeus": {
-      "command": "node",
-      "args": ["/path/to/amadeus-mcp/server.js"],
-      "env": {
-        "NODE_ENV": "production"
-      }
-    }
-  }
-}
-```
-
-## Development
-
-### Running in Development Mode
+### Development Mode
 
 ```bash
 npm run dev
 ```
 
-This uses nodemon for automatic restarting during development.
-
-### Testing
+### Production Mode
 
 ```bash
-npm test
+npm run build
+npm start
 ```
 
-The test script validates all tool endpoints and provides sample responses.
+The server will start on the configured port (default: 3000).
+
+## MCP Endpoints
+
+- **MCP Endpoint**: `http://localhost:3000/mcp`
+- **Messages Endpoint**: `http://localhost:3000/messages`
+
+## Available Tools
+
+### flight_search
+Search for available flights between airports.
+
+**Parameters:**
+- `origin` (required): Origin airport code (e.g., 'JFK')
+- `destination` (required): Destination airport code (e.g., 'LAX')
+- `departureDate` (required): Departure date (YYYY-MM-DD)
+- `returnDate` (optional): Return date for round-trip flights
+- `adults` (optional): Number of adult passengers (default: 1)
+- `currencyCode` (optional): Currency for pricing (default: 'USD')
+
+**Example:**
+```typescript
+const result = await client.callTool({
+  name: "flight_search",
+  arguments: {
+    origin: "JFK",
+    destination: "LAX",
+    departureDate: "2024-12-25",
+    adults: 2,
+    currencyCode: "USD"
+  }
+});
+```
+
+### hotel_search
+Search for available hotels in a specific city.
+
+**Parameters:**
+- `cityCode` (required): City code (e.g., 'NYC')
+- `checkInDate` (required): Check-in date (YYYY-MM-DD)
+- `checkOutDate` (required): Check-out date (YYYY-MM-DD)
+- `adults` (optional): Number of adult guests (default: 1)
+- `radius` (optional): Search radius in kilometers (default: 5)
+- `radiusUnit` (optional): Radius unit (KM or MI, default: 'KM')
+
+**Example:**
+```typescript
+const result = await client.callTool({
+  name: "hotel_search",
+  arguments: {
+    cityCode: "NYC",
+    checkInDate: "2024-12-24",
+    checkOutDate: "2024-12-26",
+    adults: 2,
+    radius: 10
+  }
+});
+```
+
+### airport_search
+Search for airports by keyword.
+
+**Parameters:**
+- `keyword` (required): Search keyword (city name, airport code, etc.)
+- `countryCode` (optional): Country code (e.g., 'US')
+
+**Example:**
+```typescript
+const result = await client.callTool({
+  name: "airport_search",
+  arguments: {
+    keyword: "New York",
+    countryCode: "US"
+  }
+});
+```
+
+### city_search
+Search for cities by keyword.
+
+**Parameters:**
+- `keyword` (required): Search keyword (city name, country, etc.)
+
+**Example:**
+```typescript
+const result = await client.callTool({
+  name: "city_search",
+  arguments: {
+    keyword: "Paris"
+  }
+});
+```
+
+### flight_offers_pricing
+Get detailed pricing for flight offers.
+
+**Parameters:**
+- `flightOffers` (required): Array of flight offers to price
+
+**Example:**
+```typescript
+const result = await client.callTool({
+  name: "flight_offers_pricing",
+  arguments: {
+    flightOffers: [/* flight offer objects */]
+  }
+});
+```
+
+## Available Prompts
+
+### travel_planner
+Get travel planning assistance with interactive responses.
+
+**Parameters:**
+- `destination` (required): Destination city or country
+- `travelDates` (optional): Travel dates (e.g., 'Next week', 'Summer 2024')
+- `budget` (optional): Budget range (e.g., 'Under $1000', 'Luxury')
+- `preferences` (optional): Travel preferences (e.g., 'Direct flights only', 'Hotel with pool')
+
+**Example:**
+```typescript
+const result = await client.getPrompt({
+  name: "travel_planner",
+  arguments: {
+    destination: "Tokyo",
+    travelDates: "Next month",
+    budget: "Under $2000",
+    preferences: "Direct flights and hotels near public transport"
+  }
+});
+```
+
+## Available Resources
+
+### amadeus_documentation
+Access to Amadeus API documentation and usage examples.
+
+**Example:**
+```typescript
+const result = await client.readResource({
+  uri: "https://developers.amadeus.com/"
+});
+```
+
+## Example Client
+
+The repository includes an example client that demonstrates how to connect to and use the MCP server:
+
+```bash
+npm run build
+node dist/client/exampleClient.js
+```
+
+## Error Handling
+
+The server includes comprehensive error handling for:
+- Missing or invalid API credentials
+- API rate limiting
+- Network errors
+- Invalid input parameters
+- Amadeus API errors
+
+All errors are properly formatted and returned to the client with meaningful error messages.
+
+## Development
 
 ### Project Structure
 
 ```
-amadeus-mcp/
-├── comprehensive-server.js # 🚀 COMPREHENSIVE MCP server (17 tools)
-├── simple-server.js       # Basic MCP server (3 tools)
-├── server.js              # Original MCP server (needs SDK compatibility fix)
-├── amadeus-client.js      # Amadeus API client wrapper
-├── config.js              # Configuration management
-├── setup.js               # Interactive setup script
-├── package.json           # Dependencies and scripts
-├── env.example            # Environment variables template
-├── COMPREHENSIVE-API-LIST.md # Complete API documentation
-└── README.md              # This file
+src/
+├── server.ts              # Main MCP server with Express integration
+├── services/
+│   └── amadeusService.ts  # Amadeus API service layer
+└── client/
+    └── exampleClient.ts   # Example MCP client
 ```
 
-## Troubleshooting
+### Adding New Tools
 
-### Common Issues
+To add new tools, follow this pattern in `server.ts`:
 
-1. **"API credentials required" error**
+```typescript
+server.setRequestHandler("tool_name", {
+  description: "Tool description",
+  inputSchema: {
+    type: "object",
+    properties: {
+      // Define your parameters here
+    },
+    required: ["required_param"]
+  }
+}, async (request) => {
+  try {
+    const result = await amadeusService.yourMethod(request.params);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify(result, null, 2)
+      }]
+    };
+  } catch (error) {
+    return {
+      content: [{
+        type: "text",
+        text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      }]
+    };
+  }
+});
+```
 
-   - Run `npm run setup` to configure your credentials
-   - Ensure your `.env` file exists and contains valid credentials
+### Adding New Prompts
 
-2. **"Module not found" errors**
+To add new prompts:
 
-   - Run `npm install` to install dependencies
-   - Ensure you're using Node.js 18+
+```typescript
+server.setPromptHandler("prompt_name", {
+  description: "Prompt description",
+  inputSchema: {
+    type: "object",
+    properties: {
+      // Define your parameters here
+    },
+    required: ["required_param"]
+  }
+}, async (request) => {
+  // Your prompt logic here
+  return {
+    content: [{
+      type: "text",
+      text: "Your response here"
+    }]
+  };
+});
+```
 
-3. **Amadeus API errors**
-   - Verify your credentials are correct
-   - Check if you're using the right environment (test vs live)
-   - Ensure your Amadeus account is active
+## Testing
 
-### Debug Mode
+Run tests with:
 
-Set `LOG_LEVEL=debug` in your `.env` file for detailed logging.
+```bash
+npm test
+```
 
 ## Contributing
 
@@ -272,22 +321,18 @@ Set `LOG_LEVEL=debug` in your `.env` file for detailed logging.
 
 ## License
 
-MIT License - see LICENSE file for details.
+This project is licensed under the MIT License.
 
 ## Support
 
 For issues and questions:
+- Check the [Amadeus API documentation](https://developers.amadeus.com/)
+- Review the MCP specification
+- Open an issue in this repository
 
-- Check the troubleshooting section above
-- Review Amadeus API documentation
-- Open an issue on GitHub
+## Related Links
 
-## Changelog
-
-### v1.0.0
-
-- Initial release
-- Flight search functionality
-- Hotel search functionality
-- Travel recommendations
-- MCP protocol implementation
+- [Model Context Protocol](https://modelcontextprotocol.io/)
+- [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk)
+- [Amadeus for Developers](https://developers.amadeus.com/)
+- [MCP Specification](https://spec.modelcontextprotocol.io/)

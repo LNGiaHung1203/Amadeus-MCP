@@ -1,26 +1,22 @@
 {
   "name": "amadeus-mcp-server",
   "version": "1.0.0",
-  "description": "MCP server for travel booking using Amadeus API",
-  "main": "server.js",
+  "description": "MCP server for Amadeus API integration",
+  "main": "dist/server.js",
   "type": "module",
   "scripts": {
-    "start": "node simple-server.js",
-    "dev": "nodemon simple-server.js",
-    "setup": "node setup.js",
-    "test": "node simple-server.js",
-    "test:tools": "node test-tools.js",
-    "mcp": "node simple-server.js",
-    "comprehensive": "node comprehensive-server.js",
-    "test:comprehensive": "node comprehensive-server.js",
-    "demo": "node demo-all-tools.js"
+    "build": "tsc",
+    "start": "node scripts/start.js",
+    "dev": "tsx src/server.ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:apis": "tsx src/test-amadeus-apis.ts"
   },
   "keywords": [
     "mcp",
     "amadeus",
     "travel",
-    "flights",
-    "hotels",
     "api"
   ],
   "author": "Your Name",
@@ -28,12 +24,16 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.4",
     "amadeus": "^8.1.0",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
-  },
-  "engines": {
-    "node": ">=18.0.0"
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.10.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.4.1",
+    "tsx": "^4.6.0",
+    "typescript": "^5.3.0"
   }
 }
