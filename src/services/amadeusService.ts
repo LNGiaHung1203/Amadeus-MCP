@@ -16,6 +16,7 @@ export interface HotelSearchParams {
   adults?: number;
   radius?: number;
   radiusUnit?: string;
+  max?: number;
 }
 
 export interface AirportSearchParams {
@@ -29,27 +30,15 @@ export interface CitySearchParams {
 
 export class AmadeusService {
   private amadeus: Amadeus | null = null;
-  private isStdioMode: boolean;
 
   constructor() {
-    // Check if we're running in STDIO mode - be more specific
-    // Only consider it STDIO mode if explicitly requested or if we're in a true STDIO context
-    this.isStdioMode = process.argv.includes('--stdio') || 
-                       process.argv.includes('stdio') ||
-                       process.env.MCP_INSPECTOR === 'true';
-    
     const clientId = process.env.AMADEUS_CLIENT_ID;
     const clientSecret = process.env.AMADEUS_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
-      if (this.isStdioMode) {
-        // In STDIO mode, just log to stderr and continue without Amadeus
-        console.error('Warning: AMADEUS_CLIENT_ID and AMADEUS_CLIENT_SECRET not set. Tools will return mock data in STDIO mode.');
-        this.amadeus = null; // Explicitly set to null
-        return;
-      } else {
-        throw new Error('AMADEUS_CLIENT_ID and AMADEUS_CLIENT_SECRET must be set in environment variables');
-      }
+      console.error('Warning: AMADEUS_CLIENT_ID and AMADEUS_CLIENT_SECRET not set. Tools will return mock data.');
+      this.amadeus = null;
+      return;
     }
 
     this.amadeus = new Amadeus({
@@ -59,26 +48,12 @@ export class AmadeusService {
     });
   }
 
-  private getMockData(method: string, params: any) {
-    return {
-      success: true,
-      data: [
-        {
-          method,
-          params,
-          message: "Mock data - Amadeus credentials not configured",
-          timestamp: new Date().toISOString()
-        }
-      ],
-      count: 1,
-      searchParams: params
-    };
-  }
+  // Removed getMockData - will return actual errors instead of fake data
 
   async searchFlights(params: FlightSearchParams) {
     try {
       if (!this.amadeus) {
-        return this.getMockData('searchFlights', params);
+        throw new Error('Amadeus credentials not configured');
       }
 
       const searchParams: any = {
@@ -111,102 +86,76 @@ export class AmadeusService {
   async searchHotels(params: HotelSearchParams) {
     try {
       if (!this.amadeus) {
-        return this.getMockData('searchHotels', params);
+        throw new Error('Amadeus credentials not configured');
       }
 
-      const searchParams: any = {
-        cityCode: params.cityCode,
-        checkInDate: params.checkInDate,
-        checkOutDate: params.checkOutDate,
-        adults: params.adults || 1,
-        radius: params.radius || 5,
-        radiusUnit: params.radiusUnit || 'KM',
-        max: 50
+      // Use the Hotel List API to find hotels in a city
+      // This API is available at: /v1/reference-data/locations/hotels/by-city
+      // But it's not exposed in the Node.js SDK, so we need to call it directly
+      
+      const clientId = process.env.AMADEUS_CLIENT_ID;
+      const clientSecret = process.env.AMADEUS_CLIENT_SECRET;
+      
+      if (!clientId || !clientSecret) {
+        throw new Error('Amadeus credentials not configured');
+      }
+
+      // First, get an access token
+      const tokenResponse = await fetch('https://test.api.amadeus.com/v1/security/oauth2/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'client_credentials',
+          client_id: clientId,
+          client_secret: clientSecret,
+        }),
+      });
+
+      if (!tokenResponse.ok) {
+        throw new Error(`Failed to get access token: ${tokenResponse.statusText}`);
+      }
+
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData.access_token;
+
+      // Now call the Hotel List API
+      const hotelListUrl = new URL('https://test.api.amadeus.com/v1/reference-data/locations/hotels/by-city');
+      hotelListUrl.searchParams.set('cityCode', params.cityCode);
+      hotelListUrl.searchParams.set('radius', params.radius.toString());
+      hotelListUrl.searchParams.set('radiusUnit', params.radiusUnit);
+      hotelListUrl.searchParams.set('hotelSource', 'ALL');
+
+      const hotelResponse = await fetch(hotelListUrl.toString(), {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!hotelResponse.ok) {
+        const errorText = await hotelResponse.text();
+        throw new Error(`Hotel List API failed: ${hotelResponse.status} ${hotelResponse.statusText} - ${errorText}`);
+      }
+
+      const hotelData = await hotelResponse.json();
+      
+      return {
+        success: true,
+        data: hotelData.data || [],
+        message: `Found ${hotelData.data?.length || 0} hotels in ${params.cityCode}`
       };
 
-      // Try to get hotel offers using the hotel list API first, then get offers
-      try {
-        // First, try to get a list of hotels in the city
-        const hotelListResponse = await (this.amadeus.referenceData as any).hotels.get({
-          cityCode: params.cityCode
-        });
-        
-        if (hotelListResponse.data && hotelListResponse.data.length > 0) {
-          // Get hotel IDs from the list
-          const hotelIds = hotelListResponse.data.slice(0, 10).map((hotel: any) => hotel.hotelId || hotel.id);
-          
-          // Now get hotel offers using the hotel IDs
-          const offersResponse = await (this.amadeus.shopping as any).hotelOffersSearch.get({
-            hotelIds: hotelIds.join(','),
-            checkInDate: params.checkInDate,
-            checkOutDate: params.checkOutDate,
-            adults: params.adults || 1,
-            max: 50
-          });
-          
-          return {
-            success: true,
-            data: offersResponse.data,
-            count: offersResponse.data.length,
-            searchParams: params
-          };
-        }
-      } catch (error) {
-        console.error('Hotel list search failed, trying direct hotel offers:', error);
-      }
-
-      // If hotel list approach fails, try direct hotel offers with city
-      try {
-        const response = await (this.amadeus.shopping as any).hotelOffersSearch.get({
-          cityCode: params.cityCode,
-          checkInDate: params.checkInDate,
-          checkOutDate: params.checkOutDate,
-          adults: params.adults || 1,
-          radius: params.radius || 5,
-          radiusUnit: params.radiusUnit || 'KM',
-          max: 50
-        });
-        
-        return {
-          success: true,
-          data: response.data,
-          count: response.data.length,
-          searchParams: params
-        };
-      } catch (error) {
-        console.error('Direct hotel offers search failed, trying location-based:', error);
-        
-        // Try location-based search
-        try {
-          const response = await (this.amadeus.shopping as any).hotelOffersSearch.get({
-            location: params.cityCode,
-            checkInDate: params.checkInDate,
-            checkOutDate: params.checkOutDate,
-            adults: params.adults || 1,
-            max: 50
-          });
-          
-          return {
-            success: true,
-            data: response.data,
-            count: response.data.length,
-            searchParams: params
-          };
-        } catch (secondError) {
-          console.error('All hotel search approaches failed, returning mock data:', secondError);
-          return this.getMockData('searchHotels', params);
-        }
-      }
     } catch (error) {
       console.error('Error searching hotels:', error);
-      throw new Error(`Failed to search hotels: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Hotel search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   async searchAirports(params: AirportSearchParams) {
     try {
       if (!this.amadeus) {
-        return this.getMockData('searchAirports', params);
+        throw new Error('Amadeus credentials not configured');
       }
 
       const searchParams: any = {
@@ -235,7 +184,7 @@ export class AmadeusService {
   async searchCities(params: CitySearchParams) {
     try {
       if (!this.amadeus) {
-        return this.getMockData('searchCities', params);
+        throw new Error('Amadeus credentials not configured');
       }
 
       const searchParams: any = {
@@ -277,7 +226,7 @@ export class AmadeusService {
   async getFlightPricing(flightOffers: any[]) {
     try {
       if (!this.amadeus) {
-        return this.getMockData('getFlightPricing', { flightOffers });
+        throw new Error('Amadeus credentials not configured');
       }
 
       // The flight offers from search already have pricing, so return them directly
@@ -298,12 +247,11 @@ export class AmadeusService {
   async getHotelPricing(hotelOffers: any[]) {
     try {
       if (!this.amadeus) {
-        return this.getMockData('getHotelPricing', { hotelOffers });
+        throw new Error('Amadeus credentials not configured');
       }
 
-      // Hotel pricing API might not be available, return mock data for now
-      console.error('Hotel pricing API not available, returning mock data');
-      return this.getMockData('getHotelPricing', { hotelOffers });
+      // Hotel pricing API is not available
+      throw new Error('Hotel pricing API not available');
     } catch (error) {
       console.error('Error getting hotel pricing:', error);
       throw new Error(`Failed to get hotel pricing: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -313,7 +261,7 @@ export class AmadeusService {
   async getFlightInspiration(origin: string) {
     try {
       if (!this.amadeus) {
-        return this.getMockData('getFlightInspiration', { origin });
+        throw new Error('Amadeus credentials not configured');
       }
 
       // Try to get flight inspiration from popular destinations
@@ -355,9 +303,8 @@ export class AmadeusService {
         console.error('Flight inspiration from popular destinations failed:', error);
       }
 
-      // If all else fails, return mock data
-      console.log('Flight inspiration not available, returning mock data');
-      return this.getMockData('getFlightInspiration', { origin });
+      // If all else fails, throw error
+      throw new Error('Flight inspiration not available');
     } catch (error) {
       console.error('Error getting flight inspiration:', error);
       throw new Error(`Failed to get flight inspiration: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -367,7 +314,7 @@ export class AmadeusService {
   async getHotelInspiration(cityCode: string) {
     try {
       if (!this.amadeus) {
-        return this.getMockData('getHotelInspiration', { cityCode });
+        throw new Error('Amadeus credentials not configured');
       }
 
       // Try to get hotel inspiration from the locations API with different approaches
@@ -407,9 +354,8 @@ export class AmadeusService {
         console.error('CITY search failed:', secondError);
       }
 
-      // If all else fails, return mock data
-      console.log('Hotel inspiration not available via locations API, returning mock data');
-      return this.getMockData('getHotelInspiration', { cityCode });
+      // If all else fails, throw error
+      throw new Error('Hotel inspiration not available via locations API');
     } catch (error) {
       console.error('Error getting hotel inspiration:', error);
       throw new Error(`Failed to get hotel inspiration: ${error instanceof Error ? error.message : 'Unknown error'}`);

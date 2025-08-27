@@ -1,36 +1,6 @@
-// Check if we're running in STDIO mode (for MCP Inspector) and redirect console output immediately
-const isStdioMode = process.argv.includes('--stdio') || 
-                   process.argv.includes('stdio') ||
-                   process.env.MCP_INSPECTOR === 'true' ||
-                   process.stdin.isTTY === false ||
-                   // If we're being run by the MCP Inspector, we'll detect it by checking if we're not in a TTY
-                   // and if there are no arguments that suggest we're running normally
-                   (!process.stdin.isTTY && process.argv.length === 2);
-
-if (isStdioMode) {
-  // Redirect ALL console output to stderr to avoid interfering with MCP protocol
-  const originalLog = console.log;
-  const originalError = console.error;
-  const originalWarn = console.warn;
-  const originalInfo = console.info;
-  
-  // Override all console methods to use stderr
-  console.log = (...args) => {
-    originalError('[LOG]', ...args);
-  };
-  
-  console.error = (...args) => {
-    originalError('[ERROR]', ...args);
-  };
-  
-  console.warn = (...args) => {
-    originalError('[WARN]', ...args);
-  };
-  
-  console.info = (...args) => {
-    originalError('[INFO]', ...args);
-  };
-}
+// Standard MCP server - primarily uses STDIO transport
+// Only enable HTTP transport if explicitly requested
+const enableHttp = process.argv.includes('--http') || process.env.ENABLE_HTTP === 'true';
 
 import express from 'express';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -67,51 +37,36 @@ const amadeusService = new AmadeusService();
 // Set up server resources, tools, and prompts
 setupServer();
 
-if (isStdioMode) {
-  // STDIO mode for MCP Inspector
-  const transport = new StdioServerTransport();
-  
-  // Connect to the transport
-  server.connect(transport).catch((error) => {
-    console.error('Failed to connect to STDIO transport:', error);
-    process.exit(1);
-  });
-  
-  console.error('Running in STDIO mode for MCP Inspector');
-} else {
-  // HTTP mode for web clients
+// Standard MCP server - primarily uses STDIO transport
+const transport = new StdioServerTransport();
+
+// Connect to the transport
+server.connect(transport).catch((error) => {
+  // In STDIO mode, write to stderr to avoid interfering with MCP protocol
+  process.stderr.write(`Failed to connect to STDIO transport: ${error}\n`);
+  process.exit(1);
+});
+
+// In STDIO mode, write to stderr to avoid interfering with MCP protocol
+process.stderr.write('Amadeus MCP Server running in STDIO mode\n');
+
+// Optional: Enable HTTP transport if explicitly requested
+if (enableHttp) {
   const app = express();
   app.use(express.json());
 
-  // Store transports for session management
-  const transports: Record<string, StreamableHTTPServerTransport> = {};
-
-  // Modern Streamable HTTP endpoint
+  // Simple HTTP endpoint for MCP
   app.all('/mcp', async (req, res) => {
-    const sessionId = req.headers['x-session-id'] as string || `session-${Date.now()}`;
-    
-    if (!transports[sessionId]) {
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => sessionId
-      });
-      transports[sessionId] = transport;
-      
-      res.on("close", () => {
-        delete transports[sessionId];
-      });
-      
-      await server.connect(transport);
-    }
-    
-    const transport = transports[sessionId];
-    await transport.handleRequest(req, res, req.body);
+    const httpTransport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => `http-${Date.now()}`
+    });
+    await server.connect(httpTransport);
+    await httpTransport.handleRequest(req, res, req.body);
   });
 
   const PORT = process.env.PORT || 3000;
-
   app.listen(PORT, () => {
-    console.log(`Amadeus MCP Server running on port ${PORT}`);
-    console.log(`MCP endpoint: http://localhost:${PORT}/mcp`);
+    process.stderr.write(`HTTP MCP endpoint available at: http://localhost:${PORT}/mcp\n`);
   });
 }
 
@@ -143,7 +98,7 @@ function setupServer() {
     }
   });
 
-  server.tool("hotel_search", "Search for available hotels", {
+  server.tool("hotel_search", "Search for hotels in a city using Amadeus Hotel List API. Returns real hotel data including names, IDs, addresses, and locations.", {
     cityCode: z.string().describe("City code (e.g., 'NYC')"),
     checkInDate: z.string().describe("Check-in date (YYYY-MM-DD)"),
     checkOutDate: z.string().describe("Check-out date (YYYY-MM-DD)"),
@@ -228,6 +183,69 @@ function setupServer() {
         content: [{
           type: "text",
           text: `Error getting flight pricing: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }]
+      };
+    }
+  });
+
+  server.tool("flight_inspiration", "Get flight inspiration and popular destinations", {
+    origin: z.string().describe("Origin airport code (e.g., 'JFK')")
+  }, async (params) => {
+    try {
+      const result = await amadeusService.getFlightInspiration(params.origin);
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }]
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: "text",
+          text: `Error getting flight inspiration: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }]
+      };
+    }
+  });
+
+  server.tool("hotel_inspiration", "Get hotel inspiration and city information", {
+    cityCode: z.string().describe("City code (e.g., 'NYC')")
+  }, async (params) => {
+    try {
+      const result = await amadeusService.getHotelInspiration(params.cityCode);
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }]
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: "text",
+          text: `Error getting hotel inspiration: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }]
+      };
+    }
+  });
+
+  server.tool("hotel_pricing", "Get pricing for hotel offers", {
+    hotelOffers: z.array(z.any()).describe("Array of hotel offers to price")
+  }, async (params) => {
+    try {
+      const result = await amadeusService.getHotelPricing(params.hotelOffers);
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }]
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: "text",
+          text: `Error getting hotel pricing: ${error instanceof Error ? error.message : 'Unknown error'}`
         }]
       };
     }
